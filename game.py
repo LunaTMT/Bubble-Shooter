@@ -140,10 +140,10 @@ class Ball(pygame.sprite.Sprite):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.moving and self.shoot: 
             mouse_x, mouse_y = pygame.mouse.get_pos()
 
-            
-            self.velocity = pygame.math.Vector2(mouse_x - self.x, mouse_y - self.y).normalize() * self.speed
-            endpoint = (self.x + self.velocity.x * 200, self.y + self.velocity.y * 200)
 
+            self.velocity = pygame.math.Vector2(mouse_x - self.x, mouse_y - self.y).normalize() * self.speed
+
+            self.velocity.normalize() # * self.speed
 
             self.moving = True
             self.shot = True
