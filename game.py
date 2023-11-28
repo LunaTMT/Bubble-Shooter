@@ -53,7 +53,7 @@ class Game:
 
         
         # Euclidean distance.
-        self.calc_distance = lambda collided_ball, : math.sqrt((self.ball.rect.x - collided_ball.rect.x) ** 2 + (self.ball.rect.y - collided_ball.rect.y) ** 2)
+        self.calc_distance = lambda collided_ball, : math.sqrt((self.ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.ball.rect.centery - collided_ball.rect.centery) ** 2)
 
     def generate_shooting_ball(self):
         self.ball = Ball(self, 
@@ -74,27 +74,30 @@ class Game:
             self.ball.handle_events(event)
 
     def update(self):
-        collision = pygame.sprite.spritecollide(self.ball, self.all_sprites, dokill=False, collided=pygame.sprite.collide_mask)
+        collisions = pygame.sprite.spritecollide(self.ball, self.all_sprites, dokill=False, collided=pygame.sprite.collide_mask)
 
-        if collision:
-            #Unfortunately must sort by euclidean distance because there is more than one collision at times
-            #collision.sort(key=self.calc_distance) 
-            collided_ball = collision[0] 
-            print(len(collision))
-
-            moving_ball_future_position = self.ball.rect.move(self.ball.velocity)
         
-            if moving_ball_future_position.right > collided_ball.rect.left and self.ball.velocity.x > 0:
-                print("Collision on the right side")
-            elif moving_ball_future_position.left < collided_ball.rect.right and self.ball.velocity.x < 0:
-                print("Collision on the left side")
-            else:
-                print("bottom")
-
+        if collisions:
+            
+            collisions.sort(key=self.calc_distance) 
+            collided_ball = collisions[0] 
             self.ball.velocity = Vector2(0, 0)
-            self.ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter)
             self.ball.moving = False
+            print(collided_ball)
+            side = self.detect_collision_side(self.ball.rect, collided_ball.rect)
+            
+            match side:
+                case "bottom":
+                    self.ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter)
+                case "top":
+                    self.ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter)
+                case "right":
+                    self.ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
+                case "left":
+                    self.ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
 
+
+            print(side)
             self.all_sprites.add(self.ball)
             self.generate_shooting_ball() 
            
@@ -102,6 +105,36 @@ class Game:
             sprite.update()
 
         self.ball.update()
+
+
+    def detect_collision_side(self, rect1, rect2):
+        if rect1.colliderect(rect2):
+            # Calculate the distances between the centers in both x and y axes
+            dx = rect2.centerx - rect1.centerx
+            dy = rect2.centery - rect1.centery
+
+            # Calculate the combined half-widths and half-heights of the rectangles
+            combined_half_width = (rect1.width + rect2.width) / 2
+            combined_half_height = (rect1.height + rect2.height) / 2
+
+            # Determine the side of collision based on the distances and combined sizes
+            if abs(dx) <= combined_half_width and abs(dy) <= combined_half_height:
+                overlap_x = combined_half_width - abs(dx)
+                overlap_y = combined_half_height - abs(dy)
+
+                if overlap_x >= overlap_y:
+                    if dy > 0:
+                        return "top"  # Collision on the bottom side of rect1
+                    else:
+                        return "bottom"  # Collision on the top side of rect1
+                else:
+                    if dx > 0:
+                        return "left"  # Collision on the right side of rect1
+                    else:
+                        return "right"  # Collision on the left side of rect1
+
+        return None  # No collision detected or partial overlap
+
 
 
     def render(self):
@@ -135,6 +168,7 @@ class Ball(Sprite):
     def __init__(self, game, position, radius, colour, velocity):
         super().__init__()
 
+        """
         self.game = game
         self.radius = radius
         self.diameter = radius * 2
@@ -142,9 +176,20 @@ class Ball(Sprite):
         self.image = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(self.image, colour, (radius, radius), radius)
         self.rect = self.image.get_rect(center=position)
+        """
+        self.x, self.y = position
+        self.game = game
+        self.radius = radius
+        self.diameter = radius * 2
+        self.width = radius*2
+        self.height = radius*2
+        self.colour = colour
+        self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        pygame.draw.rect(self.image, colour, (0, 0, self.width, self.height))  # Draw a rectangle
+        self.rect = self.image.get_rect(center=position)
 
         # Set a circular mask for collision detection
-        self.mask = pygame.mask.from_surface(self.image)
+       # self.mask = pygame.mask.from_surface(self.image)
 
         self.position = Vector2(position)
         self.velocity = Vector2(velocity)
