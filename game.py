@@ -4,6 +4,8 @@ from pygame.sprite import Sprite
 from pygame.math import Vector2
 import math
 import random
+from collections import deque
+
 
 WIDTH = 800
 HEIGHT = 1000
@@ -32,7 +34,7 @@ class Game:
         self.center_x = WIDTH // 2
         self.center_y = HEIGHT // 2
 
-        self.ball_colours = (RED, GREEN, BLACK, YELLOW, BLUE, WHITE)
+        self.shoot_ball_colours = (RED, GREEN, BLACK, YELLOW, BLUE, WHITE)
 
         #default shoot ball
         self.generate_shooting_ball()
@@ -40,10 +42,17 @@ class Game:
         self.top_balls = [[Ball(self, 
                                 position = (i * CELL_SIZE, j * CELL_SIZE),
                                 radius = 25,
-                                colour = random.choice(self.ball_colours),
+                                colour = random.choice(self.shoot_ball_colours),
                                 velocity = (0, 0))
                                 for i in range(1, 16)] for j in range(1, 6)]
         
+        #The maximum number of rows for a ball is 17
+        # Draw a line on 17th row
+        #As soon as 18th row passed -> game over
+        
+        self.all_balls = self.top_balls + [[0] * 16 for _ in range(10)]
+
+
         for row in self.top_balls:
             for ball in row:
                 ball.position.x -= ball.radius * 2  # Adjust the x-coordinate to align with the top edge
@@ -51,17 +60,16 @@ class Game:
         
         self.all_sprites = Group(ball for row in self.top_balls for ball in row)
 
-        
         # Euclidean distance.
-        self.calc_distance = lambda collided_ball, : math.sqrt((self.ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.ball.rect.centery - collided_ball.rect.centery) ** 2)
+        self.calc_distance = lambda collided_ball, : math.sqrt((self.shoot_ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.shoot_ball.rect.centery - collided_ball.rect.centery) ** 2)
 
     def generate_shooting_ball(self):
-        self.ball = Ball(self, 
+        self.shoot_ball = Ball(self, 
                         position = (self.center_x, HEIGHT-100),
                         radius = 25,
-                        colour = random.choice(self.ball_colours),
+                        colour = random.choice(self.shoot_ball_colours),
                         velocity = (0, 0))
-        self.ball.shooter = True
+        self.shoot_ball.shooter = True
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -71,41 +79,104 @@ class Game:
             for sprite in self.all_sprites:
                 sprite.handle_events(event)
             
-            self.ball.handle_events(event)
+            self.shoot_ball.handle_events(event)
 
     def update(self):
-        collisions = pygame.sprite.spritecollide(self.ball, self.all_sprites, dokill=False, collided=pygame.sprite.collide_mask)
+        collisions = pygame.sprite.spritecollide(self.shoot_ball, self.all_sprites, dokill=False, collided=pygame.sprite.collide_mask)
 
-        
         if collisions:
-            
             collisions.sort(key=self.calc_distance) 
             collided_ball = collisions[0] 
-            self.ball.velocity = Vector2(0, 0)
-            self.ball.moving = False
-            print(collided_ball)
-            side = self.detect_collision_side(self.ball.rect, collided_ball.rect)
+            self.shoot_ball.velocity = Vector2(0, 0)
+            self.shoot_ball.moving = False
+            side = self.detect_collision_side(self.shoot_ball.rect, collided_ball.rect)
             
             match side:
                 case "bottom":
-                    self.ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter)
                 case "top":
-                    self.ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter)
                 case "right":
-                    self.ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
                 case "left":
-                    self.ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
 
 
-            print(side)
-            self.all_sprites.add(self.ball)
+            """Once collided, we want to check the balls surrounding collided_ball only if it is the same colour as self.shoot_ball
+            We do this using BFS 
+            If it is same colour as self.shoot_ball then we kill it
+            Afterwards we check every item in visited to see if they are connected to anything
+            """ 
+            x, y = self.shoot_ball.get_array_position()
+            self.all_balls[x][y] = self.shoot_ball
+            popped = self.check_pop(collided_ball)
+            
+            #Check the board to see if there are disconnected balls - if so kill
+            self.check_disconnected()
+
+
+            if not popped:
+                self.all_sprites.add(self.shoot_ball)
             self.generate_shooting_ball() 
+
+
            
+
         for sprite in self.all_sprites:
             sprite.update()
+        self.shoot_ball.update()
 
-        self.ball.update()
+    def check_disconnected(self):
+        for row in self.all_balls:
+            
+            if row.count(0) == 15:
+                return
+            
+            for ball in row:
+                connected = 1    
+                if ball: #It is a valid ball
+                    connected = any(self.all_balls[x][y] for (x, y) in self.get_valid_neighbours(ball.get_array_position()))
+                    
+                    if not connected:
+                        ball.kill()
+                
+    def get_valid_neighbours(self, position):
+        x, y = position
+        return [tup for tup in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)) if self.in_bounds(tup)]
 
+
+    def check_pop(self, collided_ball):
+        if self.shoot_ball.colour == collided_ball.colour:
+            kill = {self.shoot_ball}  # Using a set to avoid duplicate balls
+            visited = set()  # To track visited nodes
+            queue = deque([self.shoot_ball.get_array_position()])  # Initialize a queue with the starting node
+
+            
+
+            while queue:
+                node = queue.popleft()  # Dequeue the node from the queue
+                if node not in visited:
+                    visited.add(node)  # Mark node as visited
+
+                    x, y = node
+                    current_ball = self.all_balls[x][y]
+
+                    if current_ball and current_ball.colour == self.shoot_ball.colour:
+                        kill.add(current_ball)  # Add ball to kill set
+
+                        # Enqueue adjacent nodes that have not been visited
+                        for pos in self.get_valid_neighbours(current_ball.get_array_position()):
+                            queue.append(pos)
+
+            if len(kill) >= 3:
+                for ball in kill:
+                    ball.kill()
+                return True
+        return False
+             
+                            
+    def in_bounds(self, pos):
+        return (0 <= pos[0] < 15 and 0 <= pos[1] < 15)
 
     def detect_collision_side(self, rect1, rect2):
         if rect1.colliderect(rect2):
@@ -142,16 +213,16 @@ class Game:
         self.all_sprites.draw(self.screen)
         pygame.draw.line(self.screen, RED, (self.center_x, 0), (self.center_x, HEIGHT), 5)  # (start), (end), (line thickness)
         
-        if not self.ball.shot:
+        if not self.shoot_ball.shot:
             mouse_x, mouse_y = pygame.mouse.get_pos()
-            direction = pygame.math.Vector2(mouse_x - self.ball.rect.centerx, mouse_y - self.ball.rect.centery)
+            direction = pygame.math.Vector2(mouse_x - self.shoot_ball.rect.centerx, mouse_y - self.shoot_ball.rect.centery)
             direction.normalize_ip()
-            endpoint = (self.ball.rect.centerx + direction.x * 200, self.ball.rect.centery + direction.y * 200)
+            endpoint = (self.shoot_ball.rect.centerx + direction.x * 200, self.shoot_ball.rect.centery + direction.y * 200)
             
             # Draw a line from the ball's center to the calculated endpoint
-            pygame.draw.line(self.screen, BLACK, self.ball.rect.center, endpoint, 5)
+            pygame.draw.line(self.screen, BLACK, self.shoot_ball.rect.center, endpoint, 5)
 
-        self.ball.draw(self.screen)
+        self.shoot_ball.draw(self.screen)
 
 
     def run(self):
@@ -168,16 +239,25 @@ class Ball(Sprite):
     def __init__(self, game, position, radius, colour, velocity):
         super().__init__()
 
-        """
+        
         self.game = game
         self.radius = radius
         self.diameter = radius * 2
-        self.color = colour
+        self.colour = colour
         self.image = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
         pygame.draw.circle(self.image, colour, (radius, radius), radius)
         self.rect = self.image.get_rect(center=position)
-        """
-        self.x, self.y = position
+
+        self.color_map = {
+            (255, 255, 255): 'WHIT',
+            (0, 0, 0): 'BLAC',
+            (255, 0, 0): 'RED_',
+            (0, 0, 255): 'BLUE',
+            (255, 255, 0): 'YELL',
+            (0, 255, 0): 'GREE',
+            (128, 128, 128): 'GREY'}
+        
+        """self.x, self.y = position
         self.game = game
         self.radius = radius
         self.diameter = radius * 2
@@ -186,10 +266,10 @@ class Ball(Sprite):
         self.colour = colour
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(self.image, colour, (0, 0, self.width, self.height))  # Draw a rectangle
-        self.rect = self.image.get_rect(center=position)
+        self.rect = self.image.get_rect(center=position)"""
 
         # Set a circular mask for collision detection
-       # self.mask = pygame.mask.from_surface(self.image)
+        self.mask = pygame.mask.from_surface(self.image)
 
         self.position = Vector2(position)
         self.velocity = Vector2(velocity)
@@ -202,6 +282,17 @@ class Ball(Sprite):
 
     def __str__(self) -> str:
         return f"{self.position} {self.colour}"
+
+    def __repr__(self) -> str:
+        return str(self.color_map[self.colour])
+
+    def kill(self):
+        x, y = self.get_array_position()
+        self.game.all_balls[x][y] = 0
+        super().kill() 
+
+    def get_array_position(self):
+        return (int(self.rect.centery / 50) - 1, int(self.rect.centerx / 50) - 1)
 
     def draw(self, screen):
         screen.blit(self.image, self.rect.topleft)
