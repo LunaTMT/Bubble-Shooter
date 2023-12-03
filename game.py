@@ -6,6 +6,8 @@ import math
 import random
 from collections import deque
 
+import pprint as pp
+import os
 
 WIDTH = 800
 HEIGHT = 1000
@@ -23,11 +25,13 @@ GRID_WIDTH = 16
 GRID_HEIGHT = 20
 CELL_SIZE = 50 # Each cell is 40x40 pixels
 
+pygame.mixer.init()
+
 class Game:
 
     def __init__(self):
         self.running = True
-
+        
         pygame.init()
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))  # Create the main surface
 
@@ -89,6 +93,8 @@ class Game:
             collided_ball = collisions[0] 
             self.shoot_ball.velocity = Vector2(0, 0)
             self.shoot_ball.moving = False
+            self.shoot_ball.shooter = False
+
             side = self.detect_collision_side(self.shoot_ball.rect, collided_ball.rect)
             
             match side:
@@ -123,7 +129,10 @@ class Game:
  
             #A new ball a player can shoot must always be generated upon clicking
             self.generate_shooting_ball() 
-           
+        
+
+        #os.system('cls' if os.name == 'nt' else 'clear')
+        #pp.pprint(self.all_balls)
 
         #Update for 'static' balls
         for sprite in self.all_sprites:
@@ -158,8 +167,12 @@ class Game:
         
         for island in get_islands():
             for r, c in island:
+                print(r, c)
                 self.all_balls[r][c].fall = True
-                self.all_balls[r][r] = 0
+                self.all_balls[r][c].fall_position = (r, c)
+                #del self.all_balls[r][c]
+                #self.all_balls[r].insert(c, 0)
+                
                 
                         
     def get_valid_neighbours(self, position):
@@ -194,11 +207,12 @@ class Game:
         if len(kill) >= 3:
             for ball in kill:
                 x, y = ball.get_array_position()
-                print(x, y)
-                self.all_balls[x][y] = 0
                 ball.kill()
+                self.all_balls[x][y] = 0
             return True
         return False
+    
+
                                   
     def detect_collision_side(self, rect1, rect2):
         if rect1.colliderect(rect2):
@@ -258,10 +272,12 @@ class Game:
 
 
 class Ball(Sprite):
+
+    FALL_SOUND = pygame.mixer.Sound('assets/sounds/fall_swoosh.mp3')  
+    POP_SOUND = pygame.mixer.Sound('assets/sounds/pop.mp3')
+
     def __init__(self, game, position, radius, colour, velocity):
         super().__init__()
-
-        
         self.game = game
         self.radius = radius
         self.diameter = radius * 2
@@ -278,6 +294,8 @@ class Ball(Sprite):
             (255, 255, 0): 'YELL',
             (0, 255, 0): 'GREE',
             (128, 128, 128): 'GREY'}
+        
+        self.fall_position = None
         
         """self.x, self.y = position
         self.game = game
@@ -299,15 +317,15 @@ class Ball(Sprite):
         self.shooter = False
         self.shot = False
         self.moving = False
-        self.speed = 10
+        self.speed = 25
         self.fall = False
   
 
     def __str__(self) -> str:
-        return f"{self.position} {self.colour}"
+        return f"{(self.rect.centerx, self.rect.centery)} {self.colour}"
 
     def __repr__(self) -> str:
-        return str(self.color_map[self.colour])
+        return "1" #str(self.color_map[self.colour])
 
     def get_array_position(self):
         return (int(self.rect.centery / 50) - 1, int(self.rect.centerx / 50) - 1)
@@ -324,7 +342,9 @@ class Ball(Sprite):
             self.moving = True
             self.shooter = False
             self.shot = True
-            
+
+
+
         
     def update(self):
         if self.moving:
@@ -341,8 +361,12 @@ class Ball(Sprite):
         if self.fall:
             self.rect.y += 10
 
-            if self.rect.y > HEIGHT: 
+            if self.rect.y > HEIGHT:
+                r, c = self.fall_position  
                 self.kill()
+                self.game.all_balls[r][c] = 0
+                
+
             
             
 
