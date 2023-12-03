@@ -51,12 +51,12 @@ class Game:
         #As soon as 18th row passed -> game over
         
         self.all_balls = self.top_balls + [[0] * 16 for _ in range(10)]
-
+        self.rows, self.columns = len(self.all_balls[0]), len(self.all_balls)
 
         for row in self.top_balls:
             for ball in row:
-                ball.position.x -= ball.radius * 2  # Adjust the x-coordinate to align with the top edge
-                ball.position.y += ball.radius * 2  # Adjust the y-coordinate to align with the top edge
+                ball.position.x -= ball.radius * 2  
+                ball.position.y += ball.radius * 2  
         
         self.all_sprites = Group(ball for row in self.top_balls for ball in row)
 
@@ -107,77 +107,99 @@ class Game:
             If it is same colour as self.shoot_ball then we kill it
             Afterwards we check every item in visited to see if they are connected to anything
             """ 
-            x, y = self.shoot_ball.get_array_position()
-            self.all_balls[x][y] = self.shoot_ball
-            popped = self.check_pop(collided_ball)
+
+            #Set the shooter ball into the correct array position based ont the ball it collided with
+            r, c = self.shoot_ball.get_array_position()
+            print(self.shoot_ball, r, c)
+            self.all_balls[r][c] = self.shoot_ball
+
+            #Have any bubbles been poped?
+            popped_any = self.check_pop()
             
-            #Check the board to see if there are disconnected balls - if so kill
-            self.check_disconnected()
-
-
-            if not popped:
-                self.all_sprites.add(self.shoot_ball)
+            #If bubble has been popped, we must check for disconnected islands and deal with them (kill)
+            #Else : #The current shooter ball must now be added to the rest of the balls (all_sprites) for special handling
+            if popped_any: self.remove_disconnected_islands()
+            else:  self.all_sprites.add(self.shoot_ball) 
+ 
+            #A new ball a player can shoot must always be generated upon clicking
             self.generate_shooting_ball() 
-
-
            
 
+        #Update for 'static' balls
         for sprite in self.all_sprites:
             sprite.update()
+        
+        # Special update 
         self.shoot_ball.update()
 
-    def check_disconnected(self):
-        for row in self.all_balls:
-            
-            if row.count(0) == 15:
-                return
-            
-            for ball in row:
-                connected = 1    
-                if ball: #It is a valid ball
-                    connected = any(self.all_balls[x][y] for (x, y) in self.get_valid_neighbours(ball.get_array_position()))
-                    
-                    if not connected:
-                        ball.kill()
+    def remove_disconnected_islands(self):
+        
+        visited = [[False for i in range(self.columns)] for _ in range(self.rows)]
+        islands = []
+
+        def DFS(i, j, island_locations):
+            directions = [(0, -1), (-1, 0), (0, 1), (1, 0)]
+            visited[i][j] = True
+            island_locations.append((i, j))
+
+            for (new_row, new_col) in self.get_valid_neighbours((i, j)):
+                if self.in_bounds((new_row, new_col)) and self.all_balls[new_row][new_col] and not visited[new_row][new_col]:
+                    DFS(new_row, new_col, island_locations)
+    
+        def get_islands():
+            for i in range(self.rows):
+                for j in range(self.columns):
+                    if self.all_balls[i][j] and not visited[i][j]:
+                        island_locations = []
+                        DFS(i, j, island_locations)
+                        if not any(pos[0] == 0 for pos in island_locations):
+                            islands.append(island_locations)
+            return islands
+        
+        for island in get_islands():
+            for r, c in island:
+                self.all_balls[r][c].fall = True
+                self.all_balls[r][r] = 0
                 
+                        
     def get_valid_neighbours(self, position):
         x, y = position
         return [tup for tup in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)) if self.in_bounds(tup)]
 
-
-    def check_pop(self, collided_ball):
-        if self.shoot_ball.colour == collided_ball.colour:
-            kill = {self.shoot_ball}  # Using a set to avoid duplicate balls
-            visited = set()  # To track visited nodes
-            queue = deque([self.shoot_ball.get_array_position()])  # Initialize a queue with the starting node
-
-            
-
-            while queue:
-                node = queue.popleft()  # Dequeue the node from the queue
-                if node not in visited:
-                    visited.add(node)  # Mark node as visited
-
-                    x, y = node
-                    current_ball = self.all_balls[x][y]
-
-                    if current_ball and current_ball.colour == self.shoot_ball.colour:
-                        kill.add(current_ball)  # Add ball to kill set
-
-                        # Enqueue adjacent nodes that have not been visited
-                        for pos in self.get_valid_neighbours(current_ball.get_array_position()):
-                            queue.append(pos)
-
-            if len(kill) >= 3:
-                for ball in kill:
-                    ball.kill()
-                return True
-        return False
-             
-                            
     def in_bounds(self, pos):
         return (0 <= pos[0] < 15 and 0 <= pos[1] < 15)
 
+    def check_pop(self):
+        
+        kill = {self.shoot_ball}  # Using a set to avoid duplicate balls
+        visited = set()  # To track visited nodes
+        queue = deque([self.shoot_ball.get_array_position()])  # Initialize a queue with the starting node
+
+    
+        while queue:
+            node = queue.popleft()  # Dequeue the node from the queue
+            if node not in visited:
+                visited.add(node)  # Mark node as visited
+
+                x, y = node
+                current_ball = self.all_balls[x][y]
+
+                if current_ball and current_ball.colour == self.shoot_ball.colour:
+                    kill.add(current_ball)  # Add ball to kill set
+
+                    # Enqueue adjacent nodes that have not been visited
+                    for pos in self.get_valid_neighbours(current_ball.get_array_position()):
+                        queue.append(pos)
+
+        if len(kill) >= 3:
+            for ball in kill:
+                x, y = ball.get_array_position()
+                print(x, y)
+                self.all_balls[x][y] = 0
+                ball.kill()
+            return True
+        return False
+                                  
     def detect_collision_side(self, rect1, rect2):
         if rect1.colliderect(rect2):
             # Calculate the distances between the centers in both x and y axes
@@ -278,6 +300,7 @@ class Ball(Sprite):
         self.shot = False
         self.moving = False
         self.speed = 10
+        self.fall = False
   
 
     def __str__(self) -> str:
@@ -285,11 +308,6 @@ class Ball(Sprite):
 
     def __repr__(self) -> str:
         return str(self.color_map[self.colour])
-
-    def kill(self):
-        x, y = self.get_array_position()
-        self.game.all_balls[x][y] = 0
-        super().kill() 
 
     def get_array_position(self):
         return (int(self.rect.centery / 50) - 1, int(self.rect.centerx / 50) - 1)
@@ -307,18 +325,25 @@ class Ball(Sprite):
             self.shooter = False
             self.shot = True
             
-            
-            
-
+        
     def update(self):
         if self.moving:
             self.position += self.velocity
             self.rect.center = self.position  # Update the rectangle position to match the circle
             self.rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
 
-
             if self.rect.left == 0 or self.rect.right == WIDTH:
                 self.velocity.x *= -1
                 
             if self.rect.top == 0 or self.rect.bottom == HEIGHT:
                 self.velocity.y *= -1
+        
+        if self.fall:
+            self.rect.y += 10
+
+            if self.rect.y > HEIGHT: 
+                self.kill()
+            
+            
+
+
