@@ -44,17 +44,17 @@ class Game:
         self.generate_shooting_ball()
 
         self.top_balls = [[Ball(self, 
-                                position = (i * CELL_SIZE, j * CELL_SIZE),
+                                position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0) , (r * CELL_SIZE)),
                                 radius = 25,
                                 colour = random.choice(self.shoot_ball_colours),
                                 velocity = (0, 0))
-                                for i in range(1, 16)] for j in range(1, 6)]
+                                for c in range(1, 16)] for r in range(1, 6)]
         
         #The maximum number of rows for a ball is 17
         # Draw a line on 17th row
         #As soon as 18th row passed -> game over
         
-        self.all_balls = self.top_balls + [[0] * 16 for _ in range(10)]
+        self.all_balls = self.top_balls + [[0] * 15 for _ in range(10)]
         self.rows, self.columns = len(self.all_balls[0]), len(self.all_balls)
 
         for row in self.top_balls:
@@ -63,9 +63,16 @@ class Game:
                 ball.position.y += ball.radius * 2  
         
         self.all_sprites = Group(ball for row in self.top_balls for ball in row)
+        self.all_falling_sprites = Group()
 
         # Euclidean distance.
         self.calc_distance = lambda collided_ball, : math.sqrt((self.shoot_ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.shoot_ball.rect.centery - collided_ball.rect.centery) ** 2)
+
+        #Test
+        self.r, self.c = 0,0#
+        self.test = 0
+        self.popped_any = None
+
 
     def generate_shooting_ball(self):
         self.shoot_ball = Ball(self, 
@@ -97,17 +104,24 @@ class Game:
 
             side = self.detect_collision_side(self.shoot_ball.rect, collided_ball.rect)
             
+            #position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0) , (r * CELL_SIZE)),
+
+            collided_row, _ = collided_ball.get_array_position()
+
+            #print(side, collided_row)
             match side:
                 case "bottom":
-                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-10, 0))
                 case "top":
-                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter)
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-10, 0))
+                    
                 case "right":
                     self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
                 case "left":
                     self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
 
 
+            self.test = self.shoot_ball.rect.center
             """Once collided, we want to check the balls surrounding collided_ball only if it is the same colour as self.shoot_ball
             We do this using BFS 
             If it is same colour as self.shoot_ball then we kill it
@@ -115,16 +129,17 @@ class Game:
             """ 
 
             #Set the shooter ball into the correct array position based ont the ball it collided with
-            r, c = self.shoot_ball.get_array_position()
-            print(self.shoot_ball, r, c)
-            self.all_balls[r][c] = self.shoot_ball
+            self.r, self.c = self.shoot_ball.get_array_position()
+            
+            self.all_balls[self.r][self.c] = self.shoot_ball
+           #self.all_sprites.add(self.shoot_ball) 
 
             #Have any bubbles been poped?
-            popped_any = self.check_pop()
+            self.popped_any = self.check_pop()
             
             #If bubble has been popped, we must check for disconnected islands and deal with them (kill)
             #Else : #The current shooter ball must now be added to the rest of the balls (all_sprites) for special handling
-            if popped_any: self.remove_disconnected_islands()
+            if self.popped_any: self.remove_disconnected_islands()
             else:  self.all_sprites.add(self.shoot_ball) 
  
             #A new ball a player can shoot must always be generated upon clicking
@@ -133,9 +148,15 @@ class Game:
 
         #os.system('cls' if os.name == 'nt' else 'clear')
         #pp.pprint(self.all_balls)
-
+        #print(self.r, self.c)
+        #print(self.test)
+        #print(self.popped_any)
+     
         #Update for 'static' balls
         for sprite in self.all_sprites:
+            sprite.update()
+        
+        for sprite in self.all_falling_sprites:
             sprite.update()
         
         # Special update 
@@ -167,14 +188,13 @@ class Game:
         
         for island in get_islands():
             for r, c in island:
-                print(r, c)
+                pass
+                #Getting rid of falling mechanism for now and just poping bubbles as other versions do
                 self.all_balls[r][c].fall = True
                 self.all_balls[r][c].fall_position = (r, c)
-                #del self.all_balls[r][c]
-                #self.all_balls[r].insert(c, 0)
-                
-                
-                        
+                self.all_sprites.remove(self.all_balls[r][c])
+                self.all_falling_sprites.add(self.all_balls[r][c])
+             
     def get_valid_neighbours(self, position):
         x, y = position
         return [tup for tup in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)) if self.in_bounds(tup)]
@@ -184,10 +204,11 @@ class Game:
 
     def check_pop(self):
         
+
         kill = {self.shoot_ball}  # Using a set to avoid duplicate balls
         visited = set()  # To track visited nodes
         queue = deque([self.shoot_ball.get_array_position()])  # Initialize a queue with the starting node
-
+        
     
         while queue:
             node = queue.popleft()  # Dequeue the node from the queue
@@ -211,9 +232,7 @@ class Game:
                 self.all_balls[x][y] = 0
             return True
         return False
-    
-
-                                  
+                                
     def detect_collision_side(self, rect1, rect2):
         if rect1.colliderect(rect2):
             # Calculate the distances between the centers in both x and y axes
@@ -244,10 +263,10 @@ class Game:
 
 
 
-    def render(self):
-        self.screen.fill(GREY)
-        self.all_sprites.draw(self.screen)
-        pygame.draw.line(self.screen, RED, (self.center_x, 0), (self.center_x, HEIGHT), 5)  # (start), (end), (line thickness)
+    def render(self, screen):
+        screen.fill(GREY)
+        self.all_sprites.draw(screen)
+        pygame.draw.line(screen, RED, (self.center_x, 0), (self.center_x, HEIGHT), 5)  # (start), (end), (line thickness)
         
         if not self.shoot_ball.shot:
             mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -258,14 +277,15 @@ class Game:
             # Draw a line from the ball's center to the calculated endpoint
             pygame.draw.line(self.screen, BLACK, self.shoot_ball.rect.center, endpoint, 5)
 
-        self.shoot_ball.draw(self.screen)
+        self.shoot_ball.draw(screen)
+        self.all_falling_sprites.draw(screen)
 
 
     def run(self):
         while self.running:
             self.handle_events()
             self.update()
-            self.render()
+            self.render(self.screen)
             pygame.display.flip() 
         pygame.quit()
         
@@ -328,7 +348,14 @@ class Ball(Sprite):
         return "1" #str(self.color_map[self.colour])
 
     def get_array_position(self):
-        return (int(self.rect.centery / 50) - 1, int(self.rect.centerx / 50) - 1)
+        #working out row positin always stays the same
+        r = int((self.rect.centery - 10) / 50) 
+        c = int((self.rect.centerx - 10 + (20 if not r%2 else 0))/ 50)  - 1
+        
+        return r, c
+    
+
+      
 
     def draw(self, screen):
         screen.blit(self.image, self.rect.topleft)
