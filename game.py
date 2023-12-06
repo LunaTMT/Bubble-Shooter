@@ -44,7 +44,7 @@ class Game:
         self.generate_shooting_ball()
 
         self.top_balls = [[Ball(self, 
-                                position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0) , (r * CELL_SIZE)),
+                                position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0), (r * CELL_SIZE)),
                                 radius = 25,
                                 colour = random.choice(self.shoot_ball_colours),
                                 velocity = (0, 0))
@@ -57,10 +57,10 @@ class Game:
         self.all_balls = self.top_balls + [[0] * 15 for _ in range(10)]
         self.rows, self.columns = len(self.all_balls[0]), len(self.all_balls)
 
-        for row in self.top_balls:
-            for ball in row:
-                ball.position.x -= ball.radius * 2  
-                ball.position.y += ball.radius * 2  
+        #for row in self.top_balls:
+        #    for ball in row:
+        #        ball.position.x -= ball.radius * 2  
+        #        ball.position.y += ball.radius * 2  
         
         self.all_sprites = Group(ball for row in self.top_balls for ball in row)
         self.all_falling_sprites = Group()
@@ -98,59 +98,49 @@ class Game:
         if collisions:
             collisions.sort(key=self.calc_distance) 
             collided_ball = collisions[0] 
+
             self.shoot_ball.velocity = Vector2(0, 0)
             self.shoot_ball.moving = False
             self.shoot_ball.shooter = False
 
             side = self.detect_collision_side(self.shoot_ball.rect, collided_ball.rect)
-            
-            #position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0) , (r * CELL_SIZE)),
 
             collided_row, _ = collided_ball.get_array_position()
 
-            #print(side, collided_row)
             match side:
-                case "bottom":
-                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-10, 0))
+                case "bottom":                                                                 # ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0) , (r * CELL_SIZE)),
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-20, 0))
                 case "top":
-                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-10, 0))
-                    
+                    self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-20, 0))  
                 case "right":
                     self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
                 case "left":
                     self.shoot_ball.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
 
 
-            self.test = self.shoot_ball.rect.center
-            """Once collided, we want to check the balls surrounding collided_ball only if it is the same colour as self.shoot_ball
-            We do this using BFS 
-            If it is same colour as self.shoot_ball then we kill it
-            Afterwards we check every item in visited to see if they are connected to anything
-            """ 
+            #Set the shooter ball into the correct array position based on the ball it collided with
+            r, c = self.shoot_ball.get_array_position()
+            self.all_balls[r][c] = self.shoot_ball
+            self.all_sprites.add(self.shoot_ball) 
 
-            #Set the shooter ball into the correct array position based ont the ball it collided with
-            self.r, self.c = self.shoot_ball.get_array_position()
             
-            self.all_balls[self.r][self.c] = self.shoot_ball
-           #self.all_sprites.add(self.shoot_ball) 
-
             #Have any bubbles been poped?
-            self.popped_any = self.check_pop()
+            popped_any = self.check_pop()
             
             #If bubble has been popped, we must check for disconnected islands and deal with them (kill)
             #Else : #The current shooter ball must now be added to the rest of the balls (all_sprites) for special handling
-            if self.popped_any: self.remove_disconnected_islands()
-            else:  self.all_sprites.add(self.shoot_ball) 
- 
+            if popped_any: self.remove_disconnected_islands()
+            
+            
+
             #A new ball a player can shoot must always be generated upon clicking
             self.generate_shooting_ball() 
         
 
+        #
         #os.system('cls' if os.name == 'nt' else 'clear')
         #pp.pprint(self.all_balls)
         #print(self.r, self.c)
-        #print(self.test)
-        #print(self.popped_any)
      
         #Update for 'static' balls
         for sprite in self.all_sprites:
@@ -164,31 +154,30 @@ class Game:
 
     def remove_disconnected_islands(self):
         
-        visited = [[False for i in range(self.columns)] for _ in range(self.rows)]
+        visited = [[False for _ in range(self.columns)] for _ in range(self.rows)]
         islands = []
 
-        def DFS(i, j, island_locations):
-            directions = [(0, -1), (-1, 0), (0, 1), (1, 0)]
-            visited[i][j] = True
-            island_locations.append((i, j))
+        def DFS(r, c, island_locations):
+            visited[r][c] = True
+            island_locations.append((r, c))
+            directions = ((r, c-1), (r-1, c), (r, c+1), (r+1, c))
 
-            for (new_row, new_col) in self.get_valid_neighbours((i, j)):
+            for (new_row, new_col) in directions: # self.get_valid_neighbours((r, c)):
                 if self.in_bounds((new_row, new_col)) and self.all_balls[new_row][new_col] and not visited[new_row][new_col]:
                     DFS(new_row, new_col, island_locations)
     
         def get_islands():
-            for i in range(self.rows):
-                for j in range(self.columns):
-                    if self.all_balls[i][j] and not visited[i][j]:
+            for r in range(self.rows):
+                for c in range(self.columns):
+                    if self.all_balls[r][c] and not visited[r][c]:
                         island_locations = []
-                        DFS(i, j, island_locations)
+                        DFS(r, c, island_locations)
                         if not any(pos[0] == 0 for pos in island_locations):
                             islands.append(island_locations)
             return islands
         
         for island in get_islands():
             for r, c in island:
-                pass
                 #Getting rid of falling mechanism for now and just poping bubbles as other versions do
                 self.all_balls[r][c].fall = True
                 self.all_balls[r][c].fall_position = (r, c)
@@ -196,20 +185,24 @@ class Game:
                 self.all_falling_sprites.add(self.all_balls[r][c])
              
     def get_valid_neighbours(self, position):
-        x, y = position
-        return [tup for tup in ((x-1, y), (x+1, y), (x, y-1), (x, y+1)) if self.in_bounds(tup)]
+        r, c  = position
+        left_right = ((r, c-1), (r,c+1))
+
+        if r%2: # if row is odd:
+            directions = ((r-1, c), (r-1, c+1), (r+1, c), (r+1, c+1))  # UP, UP-RIGHT, DOWN, DOWN_RIGHT
+        else:
+            directions = ((r-1, c), (r-1, c-1), (r+1,c-1), (r+1,c))   #UP, UP-LEFT, DOWN-LEFT, DOWN
+        
+        return [tup for tup in (directions + left_right) if self.in_bounds(tup)]
 
     def in_bounds(self, pos):
         return (0 <= pos[0] < 15 and 0 <= pos[1] < 15)
 
     def check_pop(self):
-        
-
-        kill = {self.shoot_ball}  # Using a set to avoid duplicate balls
+        to_kill = set()  # Using a set to avoid duplicate balls
         visited = set()  # To track visited nodes
         queue = deque([self.shoot_ball.get_array_position()])  # Initialize a queue with the starting node
         
-    
         while queue:
             node = queue.popleft()  # Dequeue the node from the queue
             if node not in visited:
@@ -219,14 +212,16 @@ class Game:
                 current_ball = self.all_balls[x][y]
 
                 if current_ball and current_ball.colour == self.shoot_ball.colour:
-                    kill.add(current_ball)  # Add ball to kill set
+                    to_kill.add(current_ball)  # Add ball to kill set
 
                     # Enqueue adjacent nodes that have not been visited
                     for pos in self.get_valid_neighbours(current_ball.get_array_position()):
                         queue.append(pos)
 
-        if len(kill) >= 3:
-            for ball in kill:
+        #os.system('cls' if os.name == 'nt' else 'clear')
+        print(len(to_kill))
+        if len(to_kill) >= 3:
+            for ball in to_kill:
                 x, y = ball.get_array_position()
                 ball.kill()
                 self.all_balls[x][y] = 0
