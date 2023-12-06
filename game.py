@@ -44,7 +44,7 @@ class Game:
         self.generate_shooting_ball()
 
         self.top_balls = [[Ball(self, 
-                                position = ((c * CELL_SIZE) - 10 + (20 if not r%2 else 0), (r * CELL_SIZE)),
+                                position = ((c * CELL_SIZE) + (10 if not r%2 else -10), (r * CELL_SIZE)),
                                 radius = 25,
                                 colour = random.choice(self.shoot_ball_colours),
                                 velocity = (0, 0))
@@ -62,7 +62,7 @@ class Game:
         #        ball.position.x -= ball.radius * 2  
         #        ball.position.y += ball.radius * 2  
         
-        self.all_sprites = Group(ball for row in self.top_balls for ball in row)
+        self.static_balls = Group(ball for row in self.top_balls for ball in row)
         self.all_falling_sprites = Group()
 
         # Euclidean distance.
@@ -87,13 +87,13 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-            for sprite in self.all_sprites:
+            for sprite in self.static_balls:
                 sprite.handle_events(event)
             
             self.shoot_ball.handle_events(event)
 
     def update(self):
-        collisions = pygame.sprite.spritecollide(self.shoot_ball, self.all_sprites, dokill=False, collided=pygame.sprite.collide_mask)
+        collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
 
         if collisions:
             collisions.sort(key=self.calc_distance) 
@@ -121,15 +121,15 @@ class Game:
             #Set the shooter ball into the correct array position based on the ball it collided with
             r, c = self.shoot_ball.get_array_position()
             self.all_balls[r][c] = self.shoot_ball
-            self.all_sprites.add(self.shoot_ball) 
+            self.static_balls.add(self.shoot_ball) 
 
             
             #Have any bubbles been poped?
             popped_any = self.check_pop()
             
             #If bubble has been popped, we must check for disconnected islands and deal with them (kill)
-            #Else : #The current shooter ball must now be added to the rest of the balls (all_sprites) for special handling
-            if popped_any: self.remove_disconnected_islands()
+            #Else : #The current shooter ball must now be added to the rest of the balls (static_balls) for special handling
+            #if popped_any: self.remove_disconnected_islands()
             
             
 
@@ -143,7 +143,7 @@ class Game:
         #print(self.r, self.c)
      
         #Update for 'static' balls
-        for sprite in self.all_sprites:
+        for sprite in self.static_balls:
             sprite.update()
         
         for sprite in self.all_falling_sprites:
@@ -181,7 +181,7 @@ class Game:
                 #Getting rid of falling mechanism for now and just poping bubbles as other versions do
                 self.all_balls[r][c].fall = True
                 self.all_balls[r][c].fall_position = (r, c)
-                self.all_sprites.remove(self.all_balls[r][c])
+                self.static_balls.remove(self.all_balls[r][c])
                 self.all_falling_sprites.add(self.all_balls[r][c])
              
     def get_valid_neighbours(self, position):
@@ -260,7 +260,7 @@ class Game:
 
     def render(self, screen):
         screen.fill(GREY)
-        self.all_sprites.draw(screen)
+        self.static_balls.draw(screen)
         pygame.draw.line(screen, RED, (self.center_x, 0), (self.center_x, HEIGHT), 5)  # (start), (end), (line thickness)
         
         if not self.shoot_ball.shot:
