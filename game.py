@@ -24,7 +24,7 @@ class Game:
 
         #Instantiating the board
         #   - includes the balls located on the top 5 rows and the empty spaces, represented by 0, from row 5 until row 16
-        self.board = Board([[Ball(self, r, c) for c in range(1, 16)] for r in range(1, 6)] + [[0] * 15 for _ in range(10)])
+        self.board = Board([[Ball(self, (r, c)) for c in range(15)] for r in range(5)] + [[0] * 15 for _ in range(10)])
         self.board.game = self #Link to interface
         
         #Balls
@@ -40,7 +40,6 @@ class Game:
             if event.type == pygame.QUIT:
                 self.running = False
 
-
             for sprite in self.static_balls:
                 sprite.handle_event(event)
 
@@ -51,16 +50,11 @@ class Game:
 
   
     def update(self):
-        
         collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
         
-
         if collisions:
             collisions.sort(key=self.distance_from_shooter_ball) 
-            print(collisions)
-            collided_ball = collisions[0] #Closest ball
-
-            self.shoot_ball.set_new_position_when_collided_with(collided_ball)
+            self.shoot_ball.set_new_position_when_collided_with(collisions[0])
             self.board.update()
             
         for sprite in self.static_balls:

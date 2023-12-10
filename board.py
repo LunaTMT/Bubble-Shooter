@@ -1,8 +1,7 @@
 import ball
 from collections import deque
 from math import sqrt
-import random
-import screen
+
 from pygame import Vector2
 
 class Board(list):
@@ -87,14 +86,8 @@ class Board(list):
     def update(self):
 
         r, c = self.game.shoot_ball.array_position
-        #print(r, c)
-        if not self.in_bounds((r,c)) or self[r][c]: #If the position is already taken or is not valid, continue ball bouncing
-            r, c = self.adjust_out_of_bounds_coordinates(r, c)
-            #print(r, c)
-            self.game.shoot_ball.position = Vector2(r, c)
-        
-        
         self[r][c] = self.game.shoot_ball
+
         self.game.static_balls.add(self.game.shoot_ball) 
     
         self.check_pop()
@@ -102,9 +95,5 @@ class Board(list):
 
         self.game.generate_shooting_ball()
         
-    def adjust_out_of_bounds_coordinates(self, r, c):
-        if c < 0:
-            return (r+1, 0)
-        else:
-            return (r+1, c-1)
+    
 

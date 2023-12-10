@@ -7,23 +7,25 @@ import random
 import screen
 pygame.mixer.init()
 
+
+def is_odd(value):
+        return True if value%2 else False
+   
+
 class Ball(Sprite):
 
     FALL_SOUND = pygame.mixer.Sound('assets/sounds/fall_swoosh.mp3')  
     POP_SOUND = pygame.mixer.Sound('assets/sounds/pop.mp3')
     
-    def __init__(self, game, row=None, column=None, position=None):
+    def __init__(self, game, position):
         super().__init__()
         self.game = game
-
-        self.row, self.columnn = (row, column)
-        self.fall_position = None
         
-        if position:
-            self.screen_position = position
-        else:
-            self.screen_position = row, column
 
+        self.row, self.columnn = position
+        self.fall_position = (None, None)
+        self.screen_position = position 
+            
         self.velocity = Vector2(0, 0)
         self.radius = 25
         self.diameter = self.radius * 2
@@ -45,7 +47,7 @@ class Ball(Sprite):
 
     def __repr__(self) -> str:
         return "1" 
-
+    
     @property
     def screen_position(self):
         return self._screen_position
@@ -56,13 +58,14 @@ class Ball(Sprite):
             self._screen_position = value
         else:
             row, column = value
-            self._screen_position = Vector2((column * screen.CELL_SIZE) + (10 if not row % 2 else -10), (row * screen.CELL_SIZE))
-        
+            self._screen_position = Vector2((column * screen.CELL_SIZE) + (10 if is_odd(row) else -10) + 50, (row * screen.CELL_SIZE) + 50)
+
     @property
     def array_position(self):
-        row = int((self.rect.centery - 10) / 50) 
-        column = int((self.rect.centerx - 10 + (20 if not row%2 else 0))/ 50)  - 1
+        row = int((self.rect.centery - 50) / screen.CELL_SIZE) 
+        column = int( ((self.rect.centerx) - (10 if is_odd(row) else - 10) -50) / screen.CELL_SIZE) 
         return row, column
+
 
     
 
@@ -106,19 +109,19 @@ class Ball(Sprite):
                 
 
 class ShootBall(Ball):
-    def __init__(self, game, position):
-        super().__init__(game, row=None, column=None, position=position)
+    def __init__(self, game , position):
+        super().__init__(game, position)
+        self.center = False
         self.shooter = True
+ 
 
-
-    def set_new_position_when_collided_with(self, collided_ball):
+    def set_new_position_when_collided_with(self, ball):
         
-        #self.board[r][c] = self.shoot_ball.get_array_position()
         """
         This function must do the error check to ensure the new ball position isnt already occupied
         """
 
-        def detect_collision_side(ball_1, ball_2):
+        def get_collision_side(ball_1, ball_2):
             rect1 = ball_1.rect
             rect2 = ball_2.rect
 
@@ -149,19 +152,31 @@ class ShootBall(Ball):
 
             return None  # No collision detected or partial overlap
 
+        def get_new_position_based_on_side():
+            match side:
+                case "bottom":                                                                 
+                    position = Vector2(ball.array_position) + Vector2(1, 0)
+                case "top":
+                    position = Vector2(ball.array_position) + Vector2(-1, 0)
+                case "right":
+                    position = Vector2(ball.array_position) + Vector2(0, 1)
+                case "left":
+                    position = Vector2(ball.array_position) + Vector2(0, -1)
+                    
+            return (int(position.x), int(position.y))
+                
+        #def adjust_out_of_bounds_coordinates():
+        #    if c < 0:
+        #        return Vector2(new_position.x + 1, 0) 
+        #    elif c > 0:
+        #        return Vector2(new_position.x + 1, screen.GRID_WIDTH-1)
+        #    return r, c   
+              
         self.moving = False
+        side = get_collision_side(self, ball)  
+        self.screen_position = get_new_position_based_on_side()  
+        self.rect.center = self.screen_position
+        
+        
 
-        side = detect_collision_side(self, collided_ball)
-        collided_row, _ = collided_ball.array_position
-        match side:
-            case "bottom":                                                                 
-                self.rect.center = Vector2(collided_ball.rect.center) + Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-20, 0))
-            case "top":
-                self.rect.center = Vector2(collided_ball.rect.center) - Vector2(0, collided_ball.diameter) + (Vector2(20, 0) if not collided_row%2 else Vector2(-20, 0))  
-            case "right":
-                self.rect.center = Vector2(collided_ball.rect.center) + Vector2(collided_ball.diameter, 0)
-            case "left":
-                self.rect.center = Vector2(collided_ball.rect.center) - Vector2(collided_ball.diameter, 0)
-    
-
-    
+            
