@@ -152,6 +152,18 @@ class ShootBall(Ball):
             return None  # No collision detected or partial overlap
 
         def get_new_position_based_on_side():
+
+            def adjust_out_of_bounds_coordinates(position):
+                r, c = position
+                if c < 0:
+                    print("Out of bounds")
+                    return (r + 1, 0) 
+                elif c > screen.GRID_WIDTH-1:
+                    print("Out of bounds")
+                    return (r + 1, screen.GRID_WIDTH-1)
+                return r, c   
+
+
             match side:
                 case "bottom":                                                                 
                     position = Vector2(ball.array_position) + Vector2(1, 0)
@@ -161,19 +173,19 @@ class ShootBall(Ball):
                     position = Vector2(ball.array_position) + Vector2(0, 1)
                 case "left":
                     position = Vector2(ball.array_position) + Vector2(0, -1)
-                    
-            return (int(position.x), int(position.y))
+            
+            position = (int(position.x), int(position.y))
+            return adjust_out_of_bounds_coordinates(position)
                 
-        #def adjust_out_of_bounds_coordinates():
-        #    if c < 0:
-        #        return Vector2(new_position.x + 1, 0) 
-        #    elif c > 0:
-        #        return Vector2(new_position.x + 1, screen.GRID_WIDTH-1)
-        #    return r, c   
+       
               
         self.moving = False
         side = get_collision_side(self, ball)  
-        self.screen_position = get_new_position_based_on_side()  
+        
+        new_position = get_new_position_based_on_side()  
+
+
+        self.screen_position = new_position
         self.rect.center = self.screen_position
         
         

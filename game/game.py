@@ -23,8 +23,11 @@ class Game:
 
         #Instantiating the board
         #   - includes the balls located on the top 5 rows and the empty spaces, represented by 0, from row 5 until row 16
-        self.board = Board([[Ball(self, (r, c)) for c in range(15)] for r in range(5)] + [[0] * 15 for _ in range(10)])
-        self.board.game = self #Link to interface
+        top_rows = [[Ball(self, (r, c)) for c in range(screen.GRID_WIDTH)] for r in range(screen.TOP_ROWS)]
+        remaining_empty_rows = [[0] * screen.GRID_WIDTH for _ in range(10)]
+        self.board = Board(top_rows + remaining_empty_rows)
+      
+        self.board.game = self #Link to interface - Cant include it in 
         
         #Balls
         self.shoot_ball = None
