@@ -4,6 +4,7 @@ from pygame.math import Vector2
 
 from .constants import colours, screen
 import random
+from math import sqrt
 pygame.mixer.init()
 
 
@@ -40,6 +41,8 @@ class Ball(Sprite):
         self.moving = False
         self.speed = 15
         self.fall = False
+
+        self.distance_from_shooter_ball = lambda position : sqrt((self.game.shoot_ball.rect.centerx - position.x) ** 2 + (self.game.shoot_ball.rect.centery - position.y) ** 2)
 
     def __str__(self) -> str:
         return f"{(self.rect.centerx, self.rect.centery)} {self.colour}"
@@ -151,43 +154,54 @@ class ShootBall(Ball):
 
             return None  # No collision detected or partial overlap
 
-        def get_new_position_based_on_side():
+        def get_new_position_based_on_side(side):
 
-            def adjust_out_of_bounds_coordinates(position):
+            def get_screen_position(position):
+                row, column = position
+                return Vector2((column * screen.CELL_SIZE) + (10 if is_odd(row) else -10) + 50, (row * screen.CELL_SIZE) + 50)
+
+            def adjust_out_of_bounds(position):
                 r, c = position
-                if c < 0:
-                    print("Out of bounds")
+                
+                if self.game.board[r][c]: #if the position is already occupied by a ball
+                    print("Already used")
+                    positions = [get_screen_position(get_new_array_position_based_on_collision_side(side)) for side in ("bottom", "top", "right", "left")]
+                    positions.sort(key=self.distance_from_shooter_ball)
+                    return positions[0]
+                    
+                #The columns are out of bound
+                elif c < 0:
                     return (r + 1, 0) 
                 elif c > screen.GRID_WIDTH-1:
-                    print("Out of bounds")
                     return (r + 1, screen.GRID_WIDTH-1)
-                return r, c   
-
-
-            match side:
-                case "bottom":                                                                 
-                    position = Vector2(ball.array_position) + Vector2(1, 0)
-                case "top":
-                    position = Vector2(ball.array_position) + Vector2(-1, 0)
-                case "right":
-                    position = Vector2(ball.array_position) + Vector2(0, 1)
-                case "left":
-                    position = Vector2(ball.array_position) + Vector2(0, -1)
-            
-            position = (int(position.x), int(position.y))
-            return adjust_out_of_bounds_coordinates(position)
                 
-       
+                #If the position is fine we just return it
+                return position
+                    
+            def get_new_array_position_based_on_collision_side(side):
+                match side:
+                    case "bottom":                                                                 
+                        position = Vector2(ball.array_position) + Vector2(1, 0)
+                    case "top":
+                        position = Vector2(ball.array_position) + Vector2(-1, 0)
+                    case "right":
+                        position = Vector2(ball.array_position) + Vector2(0, 1)
+                    case "left":
+                        position = Vector2(ball.array_position) + Vector2(0, -1)
+                
+                position = (int(position.x), int(position.y))
+                return position
+            
+            return adjust_out_of_bounds(get_new_array_position_based_on_collision_side(side))
+                
+
               
         self.moving = False
-        side = get_collision_side(self, ball)  
-        
-        new_position = get_new_position_based_on_side()  
-
+        new_position = get_new_position_based_on_side(get_collision_side(self, ball))  
 
         self.screen_position = new_position
         self.rect.center = self.screen_position
-        
+            
         
 
             

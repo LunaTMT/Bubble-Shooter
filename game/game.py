@@ -36,7 +36,7 @@ class Game:
         self.all_falling_balls = Group()
 
         self.distance_from_shooter_ball = lambda collided_ball : sqrt((self.shoot_ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.shoot_ball.rect.centery - collided_ball.rect.centery) ** 2)
-
+        
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
