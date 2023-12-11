@@ -1,11 +1,20 @@
 
 from collections import deque
-
+import pprint
+import os
+from .ball import Ball
+from .constants import screen
 
 class Board(list):
-    def __init__(self, *args):
-        super().__init__(*args)
-        self.rows, self.columns = len(self[0]), len(self)
+    def __init__(self, data):
+        super().__init__(data)
+        self.rows = len(data)
+        self.columns = len(data[0]) 
+        
+        self.total_misses = 0
+        self.shift_count = 6
+    
+        #For every x (shift_count) misses we add new top row and decrease shift_count by 1
         
     def remove_disconnected_islands(self):
         visited = [[False for _ in range(self.columns)] for _ in range(self.rows)]
@@ -49,8 +58,9 @@ class Board(list):
         
         return [tup for tup in (directions + left_right) if self.in_bounds(tup)]
 
-    def in_bounds(self, pos):
-        return (0 <= pos[0] < 15 and 0 <= pos[1] < 15)
+    def in_bounds(self, position):
+        row, column = position
+        return (0 <= row< self.rows and 0 <= column < self.columns)
 
     def check_pop(self):
         to_kill = set()  # Using a set to avoid duplicate balls
@@ -80,18 +90,68 @@ class Board(list):
                 ball.kill()
                 self[x][y] = 0
             self.remove_disconnected_islands()
-                                
+        
+        if len(to_kill) == 1:
+            self.total_misses += 1
+
+    def is_end_game_state(self, row):
+        
+        if row >= self.rows: 
+            print(row, self.rows)
+            self.game.end_game = True
+            return True
+        return False
+
+    def print_board(self):
+        #os.system('clear') 
+        pp = pprint.PrettyPrinter(width=50, compact=True)
+        pp.pprint(self)
+               
     def update(self):
-
-        r, c = self.game.shoot_ball.array_position
-        self[r][c] = self.game.shoot_ball
-
+        
+        row, column = self.game.shoot_ball.array_position
+        
+        if self.is_end_game_state(row): 
+            print("end")
+            return
+        
+        self[row][column] = self.game.shoot_ball
         self.game.static_balls.add(self.game.shoot_ball) 
-    
         self.check_pop()
-        self.remove_disconnected_islands()
-
         self.game.generate_shooting_ball()
+
+        if self.total_misses == self.shift_count:
+            self.shift()
+
+
+
+    def get_static_balls(self):
+        return [ball for row in self for ball in row if isinstance(ball, Ball)]
+    
+    def shift(self):      
+
+        for ball in self.get_static_balls():
+            ball.row += 1   
+
+        new_board = [[Ball(self.game, (0, c)) for c in range(screen.GRID_WIDTH)]]
+   
+        rest =  self[:-1]
+        for i in range(len(rest)):
+            new_board.append(rest[i])
+            
+        
+        temp = self.shift_count - 1
+        if temp < 3:
+            temp = 3
+            
+        self.__init__(new_board)
+        self.shift_count = temp
+
+     
+        
+
+        
+
         
     
 
