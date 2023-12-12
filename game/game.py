@@ -5,6 +5,7 @@ from pygame import Vector2
 
 from .board import Board
 from .ball import Ball, ShootBall
+from .fish import Fish
 
 from math import sqrt
 
@@ -20,12 +21,14 @@ class Game:
         
         self.running = True
         pygame.init()
-        self.screen = pygame.display.set_mode((screen.WIDTH, screen.HEIGHT))  # Create the main surface
+        self.screen = pygame.display.set_mode((screen.WIDTH + (screen.OFFSET), screen.HEIGHT))  # Create the main surface
 
         #Balls
         self.shoot_ball = None
         self.static_balls = Group()
         self.all_falling_balls = Group()
+
+        self.fishes = Group()
 
         #Instantiating the board
         #   - includes the balls located on the top 5 rows and the empty spaces, represented by 0, from row 5 until row 16
@@ -35,10 +38,8 @@ class Game:
         self.board = Board(top_rows + remaining_empty_rows)
         self.board.game = self #Link to interface - Cant include it in class parameter that inherits from list
         
-    
         self.generate_shooting_ball()
-        
-
+    
         self.distance_from_shooter_ball = lambda collided_ball : sqrt((self.shoot_ball.rect.centerx - collided_ball.rect.centerx) ** 2 + (self.shoot_ball.rect.centery - collided_ball.rect.centery) ** 2)
 
         self.end_game_y = (17 * screen.CELL_SIZE)
@@ -53,6 +54,13 @@ class Game:
         self.end_game_text_rect2 = self.end_game_text_surface2.get_rect()
         self.end_game_text_rect2.center = (screen.WIDTH // 2, (screen.HEIGHT // 2) + 100)
         
+        self.background_image = pygame.image.load('assets/images/background.jpeg') 
+
+
+        #Fish
+        self.max_fish = 10
+        self.spawn_rate = 80  # Adjust spawn rate (lower for more frequent spawns)
+        self.spawn_counter = 0
 
 
     def handle_events(self):
@@ -70,22 +78,12 @@ class Game:
                 for sprite in self.static_balls:
                     sprite.handle_event(event)
 
-                for sprite in self.static_balls:
-                    sprite.handle_event(event)
-
                 self.shoot_ball.handle_event(event)
 
   
     def update(self):
-        collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
-        if not self.end_game:
-            if collisions:
-                collisions.sort(key=self.distance_from_shooter_ball) 
-                self.shoot_ball.set_new_position_when_collided_with(collisions[0])
-                self.board.update()
-
-                if not self.end_game:
-                    self.generate_shooting_ball()
+        
+        self.check_collision()
                 
         for sprite in self.static_balls:
             sprite.update()
@@ -94,21 +92,28 @@ class Game:
             sprite.update()
         
         self.shoot_ball.update() 
-    
-
+        
+        #self.fishes.update()
+        #self.generate_fishes()
+        
+        
     def render(self ):
-        self.screen.fill(colours.GREY)
-
-        pygame.draw.line(self.screen, colours.RED, (screen.CENTER_X, 0), (screen.CENTER_X, screen.HEIGHT), 5)  # (start), (end), (line thickness) /middle screen line - unneccasary
-        pygame.draw.line(self.screen, colours.RED, (0, self.end_game_y), (screen.WIDTH, self.end_game_y), 5)
+        self.screen.fill(colours.SEA_BLUE_BACKGROUND)
+        self.screen.blit(self.background_image, (0,0))
+        #pygame.draw.line(self.screen, colours.RED, (screen.CENTER_X, 0), (screen.CENTER_X, screen.HEIGHT), 5)  # (start), (end), (line thickness) /middle screen line - unneccasary
+        #pygame.draw.line(self.screen, colours.RED, (0, self.end_game_y), (screen.WIDTH, self.end_game_y), 5)
 
         self.draw_shoot_line()
         self.shoot_ball.draw(self.screen)
         self.static_balls.draw(self.screen)
         self.all_falling_balls.draw(self.screen)
+        #self.fishes.draw(self.screen)
 
         if self.end_game:
             self.draw_end_game_text()
+
+        #self.draw_stats_box()
+
             
 
     def run(self):
@@ -133,7 +138,28 @@ class Game:
         self.screen.blit(self.end_game_text_surface, self.end_game_text_rect)
         self.screen.blit(self.end_game_text_surface2, self.end_game_text_rect2)
 
+    def draw_stats_box(self):
+        pygame.draw.rect(self.screen, colours.SEA_BLUE_BACKGROUND, (screen.WIDTH, 0, screen.OFFSET, screen.HEIGHT), border_radius=4)
+
+
     def generate_shooting_ball(self):
         self.shoot_ball = ShootBall(self, position=Vector2(screen.CENTER_X, screen.HEIGHT-100))
-        
 
+    def generate_fishes(self):
+        if len(self.fishes) < self.max_fish:
+            self.spawn_counter += 1
+            if self.spawn_counter == self.spawn_rate:
+                new_fish = Fish()
+                self.fishes.add(new_fish)
+                self.spawn_counter = 0
+
+    def check_collision(self):
+        collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
+        if not self.end_game:
+            if collisions:
+                collisions.sort(key=self.distance_from_shooter_ball) 
+                self.shoot_ball.set_new_position_when_collided_with(collisions[0])
+                self.board.update()
+
+                if not self.end_game:
+                    self.generate_shooting_ball()
