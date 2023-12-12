@@ -9,7 +9,7 @@ class Board(list):
     def __init__(self, data):
         super().__init__(data)
         self.rows = len(data)
-        self.columns = len(data[0]) 
+        self.columns = len(data[0])
         
         self.total_misses = 0
         self.shift_count = 6
@@ -58,9 +58,9 @@ class Board(list):
         
         return [tup for tup in (directions + left_right) if self.in_bounds(tup)]
 
-    def in_bounds(self, position):
-        row, column = position
-        return (0 <= row< self.rows and 0 <= column < self.columns)
+    def get_static_balls(self):
+        return [ball for row in self for ball in row if isinstance(ball, Ball)]
+
 
     def check_pop(self):
         to_kill = set()  # Using a set to avoid duplicate balls
@@ -94,59 +94,58 @@ class Board(list):
         if len(to_kill) == 1:
             self.total_misses += 1
 
-    def is_end_game_state(self, row):
-        
-        if row >= self.rows: 
-            print(row, self.rows)
-            self.game.end_game = True
-            return True
-        return False
+    def check_shift(self):    
+        #If the user has missed (self.shift_count) times then we shift  
+        if self.total_misses == self.shift_count:
+            for ball in self.get_static_balls():
+                if ball.row == self.rows-1:
+                    self.game.end_game = True
+                ball.row += 1   
+                
+            temp = self.shift_count - 1
+            if temp < 3:
+                temp = 3
+                
+            self.__init__([[Ball(self.game, (0, c)) for c in range(screen.GRID_WIDTH)]] + self[:-1])
+            self.shift_count = temp
 
+
+    def in_bounds(self, position):
+        row, column = position
+        return (0 <= row < self.rows and 0 <= column < self.columns)
+    
+    def balls_are_in_out_of_bounds_zone(self): 
+        return any(1 for ball in self[-1] if ball)
+    
     def print_board(self):
-        #os.system('clear') 
+        os.system('clear') 
         pp = pprint.PrettyPrinter(width=50, compact=True)
         pp.pprint(self)
+           
                
     def update(self):
-        
-        row, column = self.game.shoot_ball.array_position
-        
-        if self.is_end_game_state(row): 
-            print("end")
+        #Get the new position of the shooter ball
+        row, column = new_position = self.game.shoot_ball.array_position
+
+        #We check if the ball is in bounds - if not then it is the end game
+        if not self.in_bounds(new_position):
+            self.game.end_game = True
             return
-        
+
+        #It is valid and update its position to the board
         self[row][column] = self.game.shoot_ball
         self.game.static_balls.add(self.game.shoot_ball) 
-        self.check_pop()
-        self.game.generate_shooting_ball()
-
-        if self.total_misses == self.shift_count:
-            self.shift()
-
-
-
-    def get_static_balls(self):
-        return [ball for row in self for ball in row if isinstance(ball, Ball)]
-    
-    def shift(self):      
-
-        for ball in self.get_static_balls():
-            ball.row += 1   
-
-        new_board = [[Ball(self.game, (0, c)) for c in range(screen.GRID_WIDTH)]]
-   
-        rest =  self[:-1]
-        for i in range(len(rest)):
-            new_board.append(rest[i])
-            
         
-        temp = self.shift_count - 1
-        if temp < 3:
-            temp = 3
-            
-        self.__init__(new_board)
-        self.shift_count = temp
-
+        #We check if there are any balls we can pop
+        self.check_pop()
+        
+        #if the player has missed x number of times we make a shift of the board
+        self.check_shift()
+        
+        if self.balls_are_in_out_of_bounds_zone():
+            self.game.end_game = True
+    
+    
      
         
 

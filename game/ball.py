@@ -232,7 +232,7 @@ class ShootBall(Ball):
         self.moving = False
         
         self.row, self.column = get_new_position()
-        print(self.row, self.column)
+        #print(self.row, self.column)
         
             
         
