@@ -6,11 +6,13 @@ from pygame import Vector2
 from .board import Board
 from .ball import Ball, ShootBall
 from .fish import Fish
+from .bubbles import Bubble
 
-from math import sqrt
+from math import sqrt, atan2, degrees, radians
 
 import pprint as pp
 import os
+import random
 
 from .constants import colours, screen
 
@@ -28,6 +30,7 @@ class Game:
         self.static_balls = Group()
         self.all_falling_balls = Group()
 
+        self.bubbles = Group()
         self.fishes = Group()
 
         #Instantiating the board
@@ -55,6 +58,8 @@ class Game:
         self.end_game_text_rect2.center = (screen.WIDTH // 2, (screen.HEIGHT // 2) + 100)
         
         self.background_image = pygame.image.load('assets/images/background.jpeg') 
+        self.arrow_image = pygame.image.load('assets/images/arrow.png').convert_alpha() 
+        self.arrow_rect = self.arrow_image.get_rect(topleft=(screen.CENTER_X, screen.HEIGHT - 100))
 
 
         #Fish
@@ -62,6 +67,9 @@ class Game:
         self.spawn_rate = 80  # Adjust spawn rate (lower for more frequent spawns)
         self.spawn_counter = 0
 
+        #Bubbles
+        self.spawn_interval = 500  # Interval between bubble releases in milliseconds (2 seconds)
+        self.last_spawn_time = pygame.time.get_ticks()
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -93,8 +101,11 @@ class Game:
         
         self.shoot_ball.update() 
         
-        #self.fishes.update()
-        #self.generate_fishes()
+        self.fishes.update()
+        self.generate_fishes()
+
+        self.bubbles.update()
+        self.generate_bubbles()
         
         
     def render(self ):
@@ -103,16 +114,21 @@ class Game:
         #pygame.draw.line(self.screen, colours.RED, (screen.CENTER_X, 0), (screen.CENTER_X, screen.HEIGHT), 5)  # (start), (end), (line thickness) /middle screen line - unneccasary
         #pygame.draw.line(self.screen, colours.RED, (0, self.end_game_y), (screen.WIDTH, self.end_game_y), 5)
 
-        self.draw_shoot_line()
+        self.draw_shoot_arrow()
+
+
+
         self.shoot_ball.draw(self.screen)
         self.static_balls.draw(self.screen)
         self.all_falling_balls.draw(self.screen)
-        #self.fishes.draw(self.screen)
+
+        self.fishes.draw(self.screen)
+        self.bubbles.draw(self.screen)
 
         if self.end_game:
             self.draw_end_game_text()
 
-        #self.draw_stats_box()
+        self.draw_stats_box()
 
             
 
@@ -124,22 +140,28 @@ class Game:
             pygame.display.flip() 
         pygame.quit()
 
-    def draw_shoot_line(self):
+
+    def draw_shoot_arrow(self):
         if not self.shoot_ball.shot:
             mouse_x, mouse_y = pygame.mouse.get_pos()
             direction = pygame.math.Vector2(mouse_x - self.shoot_ball.rect.centerx, mouse_y - self.shoot_ball.rect.centery)
             direction.normalize_ip()
-            endpoint = (self.shoot_ball.rect.centerx + direction.x * 200, self.shoot_ball.rect.centery + direction.y * 200)
-            
-            # Draw a line from the ball's center to the calculated endpoint
-            pygame.draw.line(self.screen, colours.BLACK, self.shoot_ball.rect.center, endpoint, 5)
+
+            angle_to_rotate = degrees(atan2(direction.y, direction.x))
+            rotated_image = pygame.transform.rotate(self.arrow_image, -angle_to_rotate)  # Negative angle to match coordinate system
+            rotated_rect = rotated_image.get_rect(center=self.shoot_ball.rect.center)  # Use the ball's center as reference
+            self.screen.blit(rotated_image, rotated_rect.topleft)
+
+
+
+
 
     def draw_end_game_text(self):
         self.screen.blit(self.end_game_text_surface, self.end_game_text_rect)
         self.screen.blit(self.end_game_text_surface2, self.end_game_text_rect2)
 
     def draw_stats_box(self):
-        pygame.draw.rect(self.screen, colours.SEA_BLUE_BACKGROUND, (screen.WIDTH, 0, screen.OFFSET, screen.HEIGHT), border_radius=4)
+        pygame.draw.rect(self.screen, colours.BLACK, (screen.WIDTH, 0, screen.OFFSET, screen.HEIGHT), border_radius=4)
 
 
     def generate_shooting_ball(self):
@@ -149,9 +171,16 @@ class Game:
         if len(self.fishes) < self.max_fish:
             self.spawn_counter += 1
             if self.spawn_counter == self.spawn_rate:
-                new_fish = Fish()
-                self.fishes.add(new_fish)
+                self.fishes.add(Fish())
                 self.spawn_counter = 0
+
+    def generate_bubbles(self):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_spawn_time > self.spawn_interval:
+            self.bubbles.add(Bubble(random.randint(75, 100), screen.HEIGHT - 80))
+            self.last_spawn_time = current_time
+
+
 
     def check_collision(self):
         collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
