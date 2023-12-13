@@ -28,7 +28,7 @@ class Fish(pygame.sprite.Sprite):
         self.image = pygame.image.load(random.choice(Fish.IMAGES)).convert_alpha()
         self.image.set_alpha(random.randint(100, 200))  # Set random transparency
         self.rect = self.image.get_rect()
-        self.rect.x = screen.WIDTH  # Start from the right side of the screen
+        self.rect.x = screen.WIDTH + screen.OFFSET # Start from the right side of the screen
         self.rect.y = random.randint(0, screen.HEIGHT - self.rect.height)  # Random y position
         self.speed = random.randint(1, 2)  # Random speed
 

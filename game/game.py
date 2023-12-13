@@ -128,7 +128,7 @@ class Game:
         if self.end_game:
             self.draw_end_game_text()
 
-        self.draw_stats_box()
+     
 
             
 
@@ -179,8 +179,6 @@ class Game:
         if current_time - self.last_spawn_time > self.spawn_interval:
             self.bubbles.add(Bubble(random.randint(75, 100), screen.HEIGHT - 80))
             self.last_spawn_time = current_time
-
-
 
     def check_collision(self):
         collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
