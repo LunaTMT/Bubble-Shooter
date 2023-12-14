@@ -5,7 +5,15 @@ import os
 from .ball import Ball
 from .constants import screen
 
+
+import pygame
+import sys
+
 class Board(list):
+
+    SHIFT_SOUND = pygame.mixer.Sound('assets/sounds/shift.mp3')
+    END_GAME_SOUND = pygame.mixer.Sound('assets/sounds/end.wav')
+
     def __init__(self, data):
         super().__init__(data)
         self.rows = len(data)
@@ -13,7 +21,7 @@ class Board(list):
         
         self.total_misses = 0
         self.shift_count = 6
-    
+
         #For every x (shift_count) misses we add new top row and decrease shift_count by 1
         
     def remove_disconnected_islands(self):
@@ -46,6 +54,8 @@ class Board(list):
                 self[r][c].fall_position = (r, c)
                 self.game.static_balls.remove(self[r][c])
                 self.game.all_falling_balls.add(self[r][c])
+                self.game.points +=  int(self.game.point_multiplier * 15)
+            Ball.FALL_SOUND.play()
              
     def get_valid_neighbours(self, position):
         r, c  = position
@@ -86,11 +96,27 @@ class Board(list):
 
         if len(to_kill) >= 3:
             for ball in to_kill:
-                x, y = ball.array_position
+                r, c = ball.array_position
                 ball.kill()
-                self[x][y] = 0
+                self[r][c] = 0
+                self.game.points +=  int(self.game.point_multiplier * 10)
+            ball.POP_SOUND.play()
             self.remove_disconnected_islands()
+
+
+
+
+
+
+        # Rest of your code interacting with 'to_kill' list...
+
+
+
+
         
+        
+
+
         if len(to_kill) == 1:
             self.total_misses += 1
 
@@ -107,7 +133,11 @@ class Board(list):
                 temp = 3
                 
             self.__init__([[Ball(self.game, (0, c)) for c in range(screen.GRID_WIDTH)]] + self[:-1])
+            Board.SHIFT_SOUND.play()
             self.shift_count = temp
+            
+            self.game.level += 1
+            self.game.point_multiplier += 0.1
 
 
     def in_bounds(self, position):
@@ -130,6 +160,7 @@ class Board(list):
         #We check if the ball is in bounds - if not then it is the end game
         if not self.in_bounds(new_position):
             self.game.end_game = True
+            Board.END_GAME_SOUND.play()
             return
 
         #It is valid and update its position to the board
@@ -143,6 +174,7 @@ class Board(list):
         self.check_shift()
         
         if self.balls_are_in_out_of_bounds_zone():
+            Board.END_GAME_SOUND.play()
             self.game.end_game = True
     
     

@@ -59,6 +59,13 @@ class Game:
         self.arrow_image = pygame.image.load('assets/images/arrow.png').convert_alpha() 
         self.arrow_rect = self.arrow_image.get_rect(topleft=(screen.CENTER_X, screen.HEIGHT - 100))
 
+        
+        #Scoreboard
+        self.points = 0
+        self.level = 1
+        self.point_multiplier = 1
+
+        self.scoreboard_font = pygame.font.Font(None, 90)
 
         #Fish
         self.max_fish = 10
@@ -68,6 +75,14 @@ class Game:
         #Bubbles
         self.spawn_interval = 500  # Interval between bubble releases in milliseconds (2 seconds)
         self.last_spawn_time = pygame.time.get_ticks()
+
+
+        #Sound
+        self.collision_sound = pygame.mixer.Sound('assets/sounds/collide.mp3')
+        pygame.mixer.music.load('assets/sounds/background.mp3')  
+        pygame.mixer.music.play(loops=-1) 
+
+
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -81,9 +96,6 @@ class Game:
                 elif self.restart and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
                     self.__init__()
             else:           
-                for sprite in self.static_balls:
-                    sprite.handle_event(event)
-
                 self.shoot_ball.handle_event(event)
 
   
@@ -107,26 +119,27 @@ class Game:
         
         
     def render(self ):
-        self.screen.fill(colours.SEA_BLUE_BACKGROUND)
+        #Background
         self.screen.blit(self.background_image, (0,0))
-        
-        #pygame.draw.line(self.screen, colours.RED, (screen.CENTER_X, 0), (screen.CENTER_X, screen.HEIGHT), 5)  # (start), (end), (line thickness) /middle screen line - unneccasary
-        #pygame.draw.line(self.screen, colours.RED, (0, self.end_game_y), (screen.WIDTH, self.end_game_y), 5)
 
+        #Shoot Arrow
         self.draw_shoot_arrow()
 
+        #Balls
         self.shoot_ball.draw(self.screen)
         self.static_balls.draw(self.screen)
         self.all_falling_balls.draw(self.screen)
 
+        #Extras
         self.fishes.draw(self.screen)
         self.bubbles.draw(self.screen)
 
-        if self.end_game:
-            self.screen.blit(self.end_game_image, self.end_game_image_rect.center)
+        #EndGame
+        if self.end_game: self.screen.blit(self.end_game_image, self.end_game_image_rect.center)
      
+        #Scoreboard
+        self.draw_scoreboard()
 
-            
 
     def run(self):
         while self.running:
@@ -148,18 +161,22 @@ class Game:
             rotated_rect = rotated_image.get_rect(center=self.shoot_ball.rect.center)  # Use the ball's center as reference
             self.screen.blit(rotated_image, rotated_rect.topleft)
 
-
-
-
-
     def draw_end_game_text(self):
         self.screen.blit(self.end_game_text_surface, self.end_game_text_rect)
         self.screen.blit(self.end_game_text_surface2, self.end_game_text_rect2)
 
-    def draw_stats_box(self):
-        pygame.draw.rect(self.screen, colours.BLACK, (screen.WIDTH, 0, screen.OFFSET, screen.HEIGHT), border_radius=4)
+    def draw_scoreboard(self):
+       
+        points_text = self.scoreboard_font.render(str(self.points), True, colours.WHITE)
+        level_text = self.scoreboard_font.render(str(self.level), True, colours.WHITE)
+        lives_text = self.scoreboard_font.render(str(self.board.shift_count - self.board.total_misses), True, colours.WHITE)
 
 
+        self.screen.blit(points_text, (1000 - (points_text.get_width()//2), 350))
+        self.screen.blit(level_text, (1000 - (level_text.get_width()//2), 525))
+        self.screen.blit(lives_text, (1000 - (lives_text.get_width()//2), 700))
+
+    
     def generate_shooting_ball(self):
         self.shoot_ball = ShootBall(self, position=Vector2(screen.CENTER_X, screen.HEIGHT-100))
 
@@ -176,13 +193,17 @@ class Game:
             self.bubbles.add(Bubble(random.randint(75, 100), screen.HEIGHT - 80))
             self.last_spawn_time = current_time
 
+
     def check_collision(self):
         collisions = pygame.sprite.spritecollide(self.shoot_ball, self.static_balls, dokill=False, collided=pygame.sprite.collide_mask)
         if not self.end_game:
             if collisions:
+
                 collisions.sort(key=self.distance_from_shooter_ball) 
                 self.shoot_ball.set_new_position_when_collided_with(collisions[0])
                 self.board.update()
 
                 if not self.end_game:
                     self.generate_shooting_ball()
+
+                self.collision_sound.play()

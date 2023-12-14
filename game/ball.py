@@ -27,6 +27,8 @@ class Ball(Sprite):
     FALL_SOUND = pygame.mixer.Sound('assets/sounds/fall_swoosh.mp3')  
     POP_SOUND = pygame.mixer.Sound('assets/sounds/pop.mp3')
     
+    
+    
     def __init__(self, game, position):
         super().__init__()
         self.game = game
@@ -49,7 +51,7 @@ class Ball(Sprite):
         self.shooter = False
         self.shot = False
         self.moving = False
-        self.speed = 20
+        self.speed = 15
         self.fall = False
 
         self.distance_from_shooter_ball = lambda position : sqrt((self.game.shoot_ball.rect.centerx - position.x) ** 2 + (self.game.shoot_ball.rect.centery - position.y) ** 2)
@@ -103,15 +105,8 @@ class Ball(Sprite):
         return row, column
 
 
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.moving and self.shooter: 
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            direction_vector = pygame.math.Vector2(mouse_x - self.screen_position.x, mouse_y - self.screen_position.y)
-            self.velocity = direction_vector.normalize() * self.speed
-           
-            self.moving = True
-            self.shooter = False
-            self.shot = True
+    def handle_event(self, _):
+        pass
 
     def update(self):     
         if self.moving:
@@ -126,14 +121,17 @@ class Ball(Sprite):
                 self.velocity.y *= -1
             
             if self.rect.bottom == screen.HEIGHT:
-                self.kill()
                 self.game.generate_shooting_ball()
+                self.game.shoot_ball.colour = self.colour
+                self.game.shoot_ball.image = pygame.image.load(Ball.IMAGES[self.colour])
+
+                self.kill()
                 return
         else:
             self.velocity = Vector2(0, 0)
         
         if self.fall:
-            self.rect.y += 10
+            self.rect.y += 5
 
             if self.rect.y > screen.HEIGHT:
                 r, c = self.fall_position  
@@ -147,6 +145,9 @@ class Ball(Sprite):
                 
 
 class ShootBall(Ball):
+
+    SHOOT_SOUND = pygame.mixer.Sound('assets/sounds/shoot.mp3')
+
     def __init__(self, game , position):
         super().__init__(game, position)
         self.center = False
@@ -219,9 +220,6 @@ class ShootBall(Ball):
                 if self.game.board.in_bounds(position) and self.game.board[r][c]: #if the position is already occupied by a ball
                     positions = [get_screen_position(get_array_position_based_on_collision_side(side)) for side in sides]
                     positions.sort(key=self.distance_from_shooter_ball)
-                    print("already in use")
-                    print(sides)
-                    print(positions)
                     return get_array_position(positions[0])
                     
                 #The columns are out of bound
@@ -242,7 +240,21 @@ class ShootBall(Ball):
         self.row, self.column = get_new_position()
         #print(self.row, self.column)
         
+    
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not self.moving and self.shooter: 
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            direction_vector = pygame.math.Vector2(mouse_x - self.screen_position.x, mouse_y - self.screen_position.y)
+            self.velocity = direction_vector.normalize() * self.speed
+           
+            ShootBall.SHOOT_SOUND.play()
+
+            self.moving = True
+            self.shooter = False
+            self.shot = True
+
             
+
         
 
 
