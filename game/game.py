@@ -49,15 +49,13 @@ class Game:
         self.end_game = False
         self.restart = False
 
-        self.end_game_text_surface = pygame.font.Font(None, 100).render("GAME OVER", True, colours.BLACK)
-        self.end_game_text_rect = self.end_game_text_surface.get_rect()
-        self.end_game_text_rect.center = (screen.WIDTH // 2, screen.HEIGHT // 2)
-
-        self.end_game_text_surface2 = pygame.font.Font(None, 70).render("CLICK TO PLAY AGAIN", True, colours.BLACK)
-        self.end_game_text_rect2 = self.end_game_text_surface2.get_rect()
-        self.end_game_text_rect2.center = (screen.WIDTH // 2, (screen.HEIGHT // 2) + 100)
-        
         self.background_image = pygame.image.load('assets/images/background.jpeg') 
+        
+        self.end_game_image = pygame.image.load('assets/images/end_game.png')
+        self.end_game_image_rect = self.end_game_image.get_rect()
+        self.end_game_image_rect.center = ((screen.WIDTH - self.end_game_image_rect.width)   // 2, 
+                                           (screen.HEIGHT - self.end_game_image_rect.height) // 2)
+
         self.arrow_image = pygame.image.load('assets/images/arrow.png').convert_alpha() 
         self.arrow_rect = self.arrow_image.get_rect(topleft=(screen.CENTER_X, screen.HEIGHT - 100))
 
@@ -111,12 +109,11 @@ class Game:
     def render(self ):
         self.screen.fill(colours.SEA_BLUE_BACKGROUND)
         self.screen.blit(self.background_image, (0,0))
+        
         #pygame.draw.line(self.screen, colours.RED, (screen.CENTER_X, 0), (screen.CENTER_X, screen.HEIGHT), 5)  # (start), (end), (line thickness) /middle screen line - unneccasary
         #pygame.draw.line(self.screen, colours.RED, (0, self.end_game_y), (screen.WIDTH, self.end_game_y), 5)
 
         self.draw_shoot_arrow()
-
-
 
         self.shoot_ball.draw(self.screen)
         self.static_balls.draw(self.screen)
@@ -126,8 +123,7 @@ class Game:
         self.bubbles.draw(self.screen)
 
         if self.end_game:
-            self.draw_end_game_text()
-
+            self.screen.blit(self.end_game_image, self.end_game_image_rect.center)
      
 
             
