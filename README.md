@@ -2,6 +2,8 @@
 
 ## Demo
 
+https://github.com/LunaTMT/Bubble-Shooter/assets/44672093/d48d0b59-6c05-44cf-a4ca-eb303d8518d5
+
 ## Installation & Setup
 
 * To run this program please make sure you have [python](https://www.python.org/downloads/) installed on your system.
