@@ -10,9 +10,7 @@
 
 * Open your terminal/command promt and type the following: _pip install pygame_
 
-
-
-https://github.com/LunaTMT/Bubble-Shooter/assets/44672093/741c9c23-c702-4ee8-8118-924a34ba34a6
+https://github.com/LunaTMT/Bubble-Shooter/assets/44672093/22139f8e-cd8e-43e7-a1dc-79d6b1291d14
 
 * Download the ZIP folder from the GitHub repository.
 
