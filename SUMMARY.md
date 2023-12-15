@@ -1,4 +1,4 @@
 # Table of contents
 
 * [Bubble Shooter](README.md)
-* [Bubble Shooter](<README (1).md>)
+* [Bubble Shooter](bubble-shooter.md)
